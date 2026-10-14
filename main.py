@@ -23,10 +23,25 @@ from reportlab.lib import colors
 from flask import Flask, request, render_template_string, send_file, flash, redirect, url_for
 
 # ================================
-# VERCEL ENTRYPOINT
+# VERCEL ENTRYPOINT & ROUTING
 # ================================
 app = Flask(__name__)
 app.secret_key = "hr-analysis-ai-key-secret"
+
+class PrefixMiddleware:
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        path_info = environ.get("PATH_INFO", "")
+        if path_info.startswith("/main.py"):
+            path_info = path_info[len("/main.py"):]
+            if not path_info.startswith("/"):
+                path_info = "/" + path_info
+            environ["PATH_INFO"] = path_info
+        return self.wsgi_app(environ, start_response)
+
+app.wsgi_app = PrefixMiddleware(app.wsgi_app)
 
 # Cache for generated PDF in memory
 LAST_GENERATED_PDF = None
@@ -581,6 +596,7 @@ def run_model_and_generate_report(df):
 # ROUTES
 # ================================
 @app.route("/", methods=["GET"])
+@app.route("/main.py", methods=["GET"])
 def index():
     return render_template_string(HTML_TEMPLATE)
 
